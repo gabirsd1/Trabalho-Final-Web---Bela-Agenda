@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Painel de gestão{% endblock %}
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <h1 class="page-title h3 mb-0">Painel de gestão</h1>
+  <form method="get" class="d-flex flex-wrap gap-2 align-items-end">
+    <div><label class="form-label small mb-0" for="inicio">De</label><input id="inicio" type="date" name="inicio" value="{{ inicio|date:'Y-m-d' }}" class="form-control form-control-sm"></div>
+    <div><label class="form-label small mb-0" for="fim">Até</label><input id="fim" type="date" name="fim" value="{{ fim|date:'Y-m-d' }}" class="form-control form-control-sm"></div>
+    <button class="btn btn-sm btn-primary">Filtrar</button>
+    <a class="btn btn-sm btn-outline-secondary" href="{% url 'admin:index' %}">Abrir administração</a>
+  </form>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="text-secondary small">Agendamentos no período</div><div class="stat">{{ total }}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="text-secondary small">Faturamento (concluídos)</div><div class="stat">R$ {{ faturamento }}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="text-secondary small">A receber (pend. + conf.)</div><div class="stat">R$ {{ previsto }}</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body">
+    <div class="text-secondary small mb-1">Por status</div>
+    {% for label, n in status_resumo %}<div class="d-flex justify-content-between small"><span>{{ label }}</span><strong>{{ n }}</strong></div>{% endfor %}
+  </div></div></div>
+</div>
+
+<div class="row g-3">
+  <div class="col-lg-6"><div class="card h-100"><div class="card-body">
+    <h2 class="h5">Serviços mais pedidos</h2>
+    <table class="table table-sm mb-0"><thead><tr><th>Serviço</th><th class="text-end">Qtd.</th><th class="text-end">Receita</th></tr></thead><tbody>
+      {% for s in top_servicos %}<tr><td>{{ s.servico__nome }}</td><td class="text-end">{{ s.n }}</td><td class="text-end">R$ {{ s.receita }}</td></tr>
+      {% empty %}<tr><td colspan="3" class="text-secondary">Sem dados no período.</td></tr>{% endfor %}
+    </tbody></table>
+  </div></div></div>
+  <div class="col-lg-6"><div class="card h-100"><div class="card-body">
+    <h2 class="h5">Por profissional</h2>
+    <table class="table table-sm mb-0"><thead><tr><th>Profissional</th><th class="text-end">Atend.</th><th class="text-end">Receita</th></tr></thead><tbody>
+      {% for p in por_profissional %}<tr><td>{{ p.profissional__usuario__first_name|default:p.profissional__usuario__username }}</td><td class="text-end">{{ p.n }}</td><td class="text-end">R$ {{ p.receita }}</td></tr>
+      {% empty %}<tr><td colspan="3" class="text-secondary">Sem dados no período.</td></tr>{% endfor %}
+    </tbody></table>
+  </div></div></div>
+  <div class="col-12"><div class="card"><div class="card-body">
+    <h2 class="h5">Próximos atendimentos</h2>
+    <div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Quando</th><th>Cliente</th><th>Serviço</th><th>Profissional</th></tr></thead><tbody>
+      {% for a in proximos %}<tr><td>{{ a.data_hora|date:"d/m H:i" }}</td><td>{{ a.cliente }}</td><td>{{ a.servico.nome }}</td><td>{{ a.profissional }}</td></tr>
+      {% empty %}<tr><td colspan="4" class="text-secondary">Nenhum atendimento futuro.</td></tr>{% endfor %}
+    </tbody></table></div>
+  </div></div></div>
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Novo agendamento{% endblock %}
+{% block content %}
+<div class="mx-auto" style="max-width:600px">
+  <h1 class="page-title h3 mb-3">Novo agendamento</h1>
+  <div class="card"><div class="card-body p-4">
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% include "includes/form_fields.html" %}
+      <p class="small text-secondary">Atendemos de segunda a sábado, das 08h às 19h. O serviço só aparece depois que você escolhe o profissional.</p>
+      <div class="d-flex gap-2">
+        <button class="btn btn-primary" type="submit">Solicitar horário</button>
+        <a class="btn btn-outline-secondary" href="{% url 'cliente_agendamentos' %}">Voltar</a>
+      </div>
+    </form>
+  </div></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    var prof = document.getElementById("id_profissional");
+    var serv = document.getElementById("id_servico");
+    var base = "{% url 'api_servicos' 0 %}";
+    var escolhido = serv.value;
+
+    function carregar() {
+      var id = prof.value;
+      serv.innerHTML = '<option value="">---------</option>';
+      if (!id) return;
+      fetch(base.replace("/0/", "/" + id + "/"))
+        .then(function (r) { return r.json(); })
+        .then(function (lista) {
+          lista.forEach(function (s) {
+            var o = document.createElement("option");
+            o.value = s.id;
+            o.textContent = s.nome + " — R$ " + s.preco + " (" + s.duracao + " min)";
+            if (String(s.id) === String(escolhido)) o.selected = true;
+            serv.appendChild(o);
+          });
+        });
+    }
+    prof.addEventListener("change", function () { escolhido = ""; carregar(); });
+    if (prof.value) carregar();
+  })();
+</script>
+{% endblock %}

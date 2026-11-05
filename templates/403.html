@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Acesso negado{% endblock %}
+{% block content %}
+<div class="text-center py-5">
+  <h1 class="display-title">Esta área não é para o seu perfil</h1>
+  <p class="lead">Você está logado, mas não tem permissão para ver esta página.</p>
+  <a class="btn btn-primary" href="{% url 'dashboard' %}">Ir para o meu painel</a>
+</div>
+{% endblock %}

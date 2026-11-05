@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Entrar{% endblock %}
+{% block content %}
+<div class="auth-wrap">
+  <div class="card shadow-sm"><div class="card-body p-4">
+    <h1 class="h3 mb-1">Entrar</h1>
+    <p class="text-secondary">Acesse sua conta para ver e criar agendamentos.</p>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% include "includes/form_fields.html" %}
+      <input type="hidden" name="next" value="{{ next }}">
+      <button class="btn btn-primary w-100" type="submit">Entrar</button>
+    </form>
+    <p class="mt-3 mb-0 text-center">Ainda não tem conta? <a href="{% url 'cadastro' %}">Cadastre-se</a></p>
+  </div></div>
+</div>
+{% endblock %}

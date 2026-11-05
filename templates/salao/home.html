@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Serviços{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="row align-items-center g-4 g-lg-5">
+    <div class="col-lg-6">
+      <h1 class="display-title mb-3">Escolha o serviço, o horário e quem atende você.</h1>
+      <p class="lead mb-4">Agende online, acompanhe a confirmação e cancele quando precisar, sem ligar para o salão.</p>
+      <div class="d-flex flex-wrap gap-2">
+        {% if user.is_authenticated %}
+          <a class="btn btn-primary btn-lg" href="{% url 'dashboard' %}">Ir para o meu painel</a>
+        {% else %}
+          <a class="btn btn-primary btn-lg" href="{% url 'cadastro' %}">Criar conta e agendar</a>
+          <a class="btn btn-outline-primary btn-lg" href="{% url 'login' %}">Já tenho conta</a>
+        {% endif %}
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="menu-board shadow">
+        <h2>Serviços e preços</h2>
+        {% for cat in categorias %}
+          <div class="menu-cat">{{ cat.nome }}</div>
+          {% for s in cat.servicos_ativos %}
+            <div class="menu-item">
+              <span>{{ s.nome }} <small>{{ s.duracao_min }} min</small></span>
+              <span class="dots"></span>
+              <span class="price">R$ {{ s.preco }}</span>
+            </div>
+          {% endfor %}
+        {% empty %}
+          <p class="mb-0">Nenhum serviço cadastrado ainda.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</section>
+
+{% if profissionais %}
+<section class="pb-4">
+  <h2 class="h4 mb-3">Quem atende</h2>
+  <div class="row g-3">
+    {% for p in profissionais %}
+      <div class="col-sm-6 col-lg-4">
+        <div class="card h-100"><div class="card-body d-flex gap-3 align-items-center">
+          <div class="pro-avatar">
+            {% if p.foto %}<img src="{{ p.foto.url }}" alt="{{ p }}">{% else %}{{ p.usuario.first_name|default:p.usuario.username|slice:":1" }}{% endif %}
+          </div>
+          <div>
+            <div class="fw-semibold">{{ p }}</div>
+            <div class="text-secondary small">{{ p.especialidade }}</div>
+          </div>
+        </div></div>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

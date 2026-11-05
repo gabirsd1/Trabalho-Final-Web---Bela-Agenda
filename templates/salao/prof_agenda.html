@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Minha agenda{% endblock %}
+{% block content %}
+{% if not profissional %}
+  <div class="alert alert-warning">Seu usuário ainda não foi vinculado a um cadastro de profissional. Peça ao administrador para fazer o vínculo.</div>
+{% else %}
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h1 class="page-title h3 mb-0">Agenda de {{ dia|date:"l, d/m/Y" }}</h1>
+    <div class="text-secondary">{{ profissional.especialidade }}</div>
+  </div>
+  <div class="d-flex gap-2 align-items-center">
+    <a class="btn btn-outline-secondary btn-sm" href="?data={{ dia_anterior|date:'Y-m-d' }}" aria-label="Dia anterior"><i class="bi bi-chevron-left"></i></a>
+    <form method="get" class="m-0"><input type="date" name="data" value="{{ dia|date:'Y-m-d' }}" class="form-control form-control-sm" onchange="this.form.submit()" aria-label="Escolher dia"></form>
+    <a class="btn btn-outline-secondary btn-sm" href="?data={{ dia_seguinte|date:'Y-m-d' }}" aria-label="Próximo dia"><i class="bi bi-chevron-right"></i></a>
+    {% if not eh_hoje %}<a class="btn btn-outline-primary btn-sm" href="{% url 'prof_agenda' %}">Hoje</a>{% endif %}
+  </div>
+</div>
+
+{% for a in agendamentos %}
+  <div class="card mb-2"><div class="card-body d-flex flex-wrap align-items-center gap-3">
+    <div class="slot-time">{{ a.data_hora|time:"H:i" }}<div class="small fw-normal text-secondary">até {{ a.fim|time:"H:i" }}</div></div>
+    <div class="flex-grow-1">
+      <div class="fw-semibold">{{ a.servico.nome }} <span class="badge {{ a.badge_class }} ms-1">{{ a.get_status_display }}</span></div>
+      <div class="text-secondary small">{{ a.cliente }}{% if a.cliente.telefone %} · {{ a.cliente.telefone }}{% endif %} · R$ {{ a.preco_cobrado }}</div>
+      {% if a.observacoes %}<div class="small mt-1"><i class="bi bi-chat-left-text"></i> {{ a.observacoes }}</div>{% endif %}
+    </div>
+    <form method="post" action="{% url 'prof_acao' a.pk %}" class="d-flex gap-2">
+      {% csrf_token %}
+      {% if a.status == 'PEND' %}
+        <button name="acao" value="confirmar" class="btn btn-sm btn-primary">Confirmar</button>
+        <button name="acao" value="cancelar" class="btn btn-sm btn-outline-danger">Cancelar</button>
+      {% elif a.status == 'CONF' %}
+        <button name="acao" value="concluir" class="btn btn-sm btn-primary">Concluir</button>
+        <button name="acao" value="cancelar" class="btn btn-sm btn-outline-danger">Cancelar</button>
+      {% endif %}
+    </form>
+  </div></div>
+{% empty %}
+  <div class="card"><div class="card-body text-center py-5">Nenhum atendimento neste dia.</div></div>
+{% endfor %}
+{% endif %}
+{% endblock %}

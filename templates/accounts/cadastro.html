@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Criar conta{% endblock %}
+{% block content %}
+<div class="auth-wrap" style="max-width:560px">
+  <div class="card shadow-sm"><div class="card-body p-4">
+    <h1 class="h3 mb-1">Criar conta</h1>
+    <p class="text-secondary">Leva menos de um minuto. Depois é só escolher o horário.</p>
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% include "includes/form_fields.html" %}
+      <button class="btn btn-primary w-100" type="submit">Criar conta</button>
+    </form>
+    <p class="mt-3 mb-0 text-center">Já tem conta? <a href="{% url 'login' %}">Entrar</a></p>
+  </div></div>
+</div>
+{% endblock %}
