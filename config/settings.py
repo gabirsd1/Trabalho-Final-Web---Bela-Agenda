@@ -155,6 +155,8 @@ JAZZMIN_SETTINGS = {
         "salao.Servico": "fas fa-cut",
         "salao.Profissional": "fas fa-user-tie",
         "salao.Agendamento": "fas fa-calendar-check",
+        "salao.HorarioDisponivel": "fas fa-clock",
+        "salao.Avaliacao": "fas fa-star",
     },
     "order_with_respect_to": ["salao", "accounts", "auth"],
     "show_ui_builder": False,

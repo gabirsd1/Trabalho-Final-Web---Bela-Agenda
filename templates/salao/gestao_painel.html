@@ -1,42 +1,105 @@
 {% extends "base.html" %}
+{% load static salao_extras %}
 {% block title %}Painel de gestão{% endblock %}
 {% block content %}
-<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
-  <h1 class="page-title h3 mb-0">Painel de gestão</h1>
-  <form method="get" class="d-flex flex-wrap gap-2 align-items-end">
-    <div><label class="form-label small mb-0" for="inicio">De</label><input id="inicio" type="date" name="inicio" value="{{ inicio|date:'Y-m-d' }}" class="form-control form-control-sm"></div>
-    <div><label class="form-label small mb-0" for="fim">Até</label><input id="fim" type="date" name="fim" value="{{ fim|date:'Y-m-d' }}" class="form-control form-control-sm"></div>
-    <button class="btn btn-sm btn-primary">Filtrar</button>
-    <a class="btn btn-sm btn-outline-secondary" href="{% url 'admin:index' %}">Abrir administração</a>
-  </form>
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-4">
+  <div>
+    <h1 class="page-title h3 mb-1">Painel de gestão</h1>
+    <div class="text-secondary">{{ inicio|date:"d/m/Y" }} a {{ fim|date:"d/m/Y" }}</div>
+  </div>
+  <div class="d-flex flex-wrap gap-3 align-items-end">
+    <div class="pill-group d-flex gap-1 flex-wrap">
+      {% for a in atalhos %}
+        <a class="btn {% if a.ativo %}btn-primary{% else %}btn-outline-secondary{% endif %}" href="?inicio={{ a.inicio|date:'Y-m-d' }}&fim={{ a.fim|date:'Y-m-d' }}">{{ a.rotulo }}</a>
+      {% endfor %}
+    </div>
+    <form method="get" class="d-flex flex-wrap gap-2 align-items-end">
+      <div><label class="form-label small mb-0" for="inicio">De</label><input id="inicio" type="date" name="inicio" value="{{ inicio|date:'Y-m-d' }}" class="form-control form-control-sm"></div>
+      <div><label class="form-label small mb-0" for="fim">Até</label><input id="fim" type="date" name="fim" value="{{ fim|date:'Y-m-d' }}" class="form-control form-control-sm"></div>
+      <button class="btn btn-sm btn-primary">Filtrar</button>
+      <a class="btn btn-sm btn-outline-secondary" href="{% url 'admin:index' %}">Administração</a>
+    </form>
+  </div>
 </div>
 
-<div class="row g-3 mb-4">
-  <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="text-secondary small">Agendamentos no período</div><div class="stat">{{ total }}</div></div></div></div>
-  <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="text-secondary small">Faturamento (concluídos)</div><div class="stat">R$ {{ faturamento }}</div></div></div></div>
-  <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body"><div class="text-secondary small">A receber (pend. + conf.)</div><div class="stat">R$ {{ previsto }}</div></div></div></div>
-  <div class="col-6 col-lg-3"><div class="card h-100"><div class="card-body">
-    <div class="text-secondary small mb-1">Por status</div>
-    {% for label, n in status_resumo %}<div class="d-flex justify-content-between small"><span>{{ label }}</span><strong>{{ n }}</strong></div>{% endfor %}
+<div class="row g-3 mb-3">
+  <div class="col-6 col-lg-3"><div class="card kpi h-100"><div class="card-body">
+    <div class="kpi-label"><i class="bi bi-cash-coin"></i> Faturamento</div>
+    <div class="stat">R$ {{ faturamento|floatformat:"2g" }}</div>
+    <div class="kpi-sub">A receber: R$ {{ previsto|floatformat:"2g" }}</div>
+  </div></div></div>
+  <div class="col-6 col-lg-3"><div class="card kpi h-100" style="--kpi-cor:#7A62C9"><div class="card-body">
+    <div class="kpi-label"><i class="bi bi-calendar-check"></i> Agendamentos</div>
+    <div class="stat">{{ total }}</div>
+    <div class="kpi-sub">{{ n_concluidos }} concluído{{ n_concluidos|pluralize }} · {{ taxa_cancelamento }}% cancelado{{ n_cancelados|pluralize }}</div>
+  </div></div></div>
+  <div class="col-6 col-lg-3"><div class="card kpi h-100" style="--kpi-cor:var(--ba-ok)"><div class="card-body">
+    <div class="kpi-label"><i class="bi bi-receipt"></i> Ticket médio</div>
+    <div class="stat">R$ {{ ticket_medio|floatformat:"2g" }}</div>
+    <div class="kpi-sub">{{ clientes }} cliente{{ clientes|pluralize }} atendido{{ clientes|pluralize }} no período</div>
+  </div></div></div>
+  <div class="col-6 col-lg-3"><div class="card kpi h-100" style="--kpi-cor:var(--ba-star)"><div class="card-body">
+    <div class="kpi-label"><i class="bi bi-star"></i> Satisfação</div>
+    {% if total_aval %}
+      <div class="stat">{{ nota_media|floatformat:1 }} <span class="fs-6 fw-normal">{% estrelas nota_media %}</span></div>
+      <div class="kpi-sub">{{ total_aval }} avaliaç{{ total_aval|pluralize:"ão,ões" }} · {{ horarios_livres }} horário{{ horarios_livres|pluralize }} livre{{ horarios_livres|pluralize }}</div>
+    {% else %}
+      <div class="stat">—</div><div class="kpi-sub">Sem avaliações no período · {{ horarios_livres }} horário{{ horarios_livres|pluralize }} livre{{ horarios_livres|pluralize }}</div>
+    {% endif %}
+  </div></div></div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-8"><div class="card h-100"><div class="card-body">
+    <h2 class="h5">Receita por dia</h2>
+    <p class="small text-secondary mb-2">Concluídos já faturados e agendamentos ainda por vir.</p>
+    <div class="chart-box"><canvas id="gReceita" role="img" aria-label="Gráfico de barras da receita por dia"></canvas></div>
+  </div></div></div>
+  <div class="col-lg-4"><div class="card h-100"><div class="card-body">
+    <h2 class="h5">Agendamentos por status</h2>
+    <div class="chart-box"><canvas id="gStatus" role="img" aria-label="Gráfico de rosca dos agendamentos por status"></canvas></div>
+  </div></div></div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-5"><div class="card h-100"><div class="card-body">
+    <h2 class="h5">Serviços mais pedidos</h2>
+    {% if top_servicos %}<div class="chart-box sm"><canvas id="gServicos" role="img" aria-label="Gráfico de barras dos serviços mais pedidos"></canvas></div>
+    {% else %}<p class="text-secondary mb-0">Sem agendamentos no período.</p>{% endif %}
+  </div></div></div>
+  <div class="col-lg-7"><div class="card h-100"><div class="card-body">
+    <h2 class="h5">Profissionais</h2>
+    <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+      <thead><tr><th>Profissional</th><th class="text-end">Atend.</th><th class="text-end">Receita</th><th>Avaliação</th></tr></thead>
+      <tbody>
+      {% for p in ranking %}
+        <tr>
+          <td><a href="{% url 'profissional_detalhe' p.id %}">{{ p.nome }}</a></td>
+          <td class="text-end">{{ p.n }}</td>
+          <td class="text-end">R$ {{ p.receita|floatformat:"2g" }}</td>
+          <td>{% if p.n_aval %}{% estrelas p.media %} <strong>{{ p.media|floatformat:1 }}</strong> <span class="text-secondary small">({{ p.n_aval }})</span>{% else %}<span class="text-secondary small">sem avaliações</span>{% endif %}</td>
+        </tr>
+      {% empty %}<tr><td colspan="4" class="text-secondary">Sem dados no período.</td></tr>{% endfor %}
+      </tbody>
+    </table></div>
   </div></div></div>
 </div>
 
 <div class="row g-3">
   <div class="col-lg-6"><div class="card h-100"><div class="card-body">
-    <h2 class="h5">Serviços mais pedidos</h2>
-    <table class="table table-sm mb-0"><thead><tr><th>Serviço</th><th class="text-end">Qtd.</th><th class="text-end">Receita</th></tr></thead><tbody>
-      {% for s in top_servicos %}<tr><td>{{ s.servico__nome }}</td><td class="text-end">{{ s.n }}</td><td class="text-end">R$ {{ s.receita }}</td></tr>
-      {% empty %}<tr><td colspan="3" class="text-secondary">Sem dados no período.</td></tr>{% endfor %}
-    </tbody></table>
+    <h2 class="h5">Últimas avaliações</h2>
+    {% for a in ultimas_avaliacoes %}
+      <div class="{% if not forloop.last %}mb-3 pb-3 border-bottom{% endif %}">
+        <div class="d-flex justify-content-between flex-wrap gap-1">
+          <div>{% estrelas a.nota %} <span class="fw-semibold ms-1">{{ a.agendamento.cliente.first_name|default:a.agendamento.cliente.username }}</span>
+            <span class="text-secondary small">para {{ a.agendamento.profissional }}</span></div>
+          <div class="small text-secondary">{{ a.agendamento.servico.nome }}</div>
+        </div>
+        {% if a.comentario %}<p class="quote small mb-0 mt-1">{{ a.comentario }}</p>{% endif %}
+      </div>
+    {% empty %}<p class="text-secondary mb-0">Nenhuma avaliação ainda.</p>{% endfor %}
   </div></div></div>
   <div class="col-lg-6"><div class="card h-100"><div class="card-body">
-    <h2 class="h5">Por profissional</h2>
-    <table class="table table-sm mb-0"><thead><tr><th>Profissional</th><th class="text-end">Atend.</th><th class="text-end">Receita</th></tr></thead><tbody>
-      {% for p in por_profissional %}<tr><td>{{ p.profissional__usuario__first_name|default:p.profissional__usuario__username }}</td><td class="text-end">{{ p.n }}</td><td class="text-end">R$ {{ p.receita }}</td></tr>
-      {% empty %}<tr><td colspan="3" class="text-secondary">Sem dados no período.</td></tr>{% endfor %}
-    </tbody></table>
-  </div></div></div>
-  <div class="col-12"><div class="card"><div class="card-body">
     <h2 class="h5">Próximos atendimentos</h2>
     <div class="table-responsive"><table class="table table-sm mb-0"><thead><tr><th>Quando</th><th>Cliente</th><th>Serviço</th><th>Profissional</th></tr></thead><tbody>
       {% for a in proximos %}<tr><td>{{ a.data_hora|date:"d/m H:i" }}</td><td>{{ a.cliente }}</td><td>{{ a.servico.nome }}</td><td>{{ a.profissional }}</td></tr>
@@ -44,4 +107,11 @@
     </tbody></table></div>
   </div></div></div>
 </div>
+
+{{ grafico|json_script:"dados-grafico" }}
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.js"></script>
+<script src="{% static 'js/dashboard.js' %}"></script>
 {% endblock %}

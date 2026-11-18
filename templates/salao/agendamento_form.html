@@ -1,48 +1,91 @@
 {% extends "base.html" %}
+{% load static salao_extras %}
 {% block title %}Novo agendamento{% endblock %}
 {% block content %}
-<div class="mx-auto" style="max-width:600px">
-  <h1 class="page-title h3 mb-3">Novo agendamento</h1>
-  <div class="card"><div class="card-body p-4">
-    <form method="post" novalidate>
+<div class="mb-4">
+  <h1 class="page-title h3 mb-1">Novo agendamento</h1>
+  <p class="text-secondary mb-0">Escolha quem vai atender, o serviço e um dos horários que o profissional deixou livres.</p>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <form method="post" id="formAgendar" novalidate
+          data-url-servicos="{% url 'api_servicos' 0 %}" data-url-horarios="{% url 'api_horarios' 0 %}">
       {% csrf_token %}
-      {% include "includes/form_fields.html" %}
-      <p class="small text-secondary">Atendemos de segunda a sábado, das 08h às 19h. O serviço só aparece depois que você escolhe o profissional.</p>
-      <div class="d-flex gap-2">
-        <button class="btn btn-primary" type="submit">Solicitar horário</button>
-        <a class="btn btn-outline-secondary" href="{% url 'cliente_agendamentos' %}">Voltar</a>
+      {{ form.profissional }}{{ form.servico }}{{ form.horario }}{{ form.data_hora }}
+
+      {% if form.non_field_errors or form.profissional.errors or form.servico.errors or form.horario.errors or form.data_hora.errors %}
+      <div class="alert alert-danger" role="alert">
+        <strong>Não foi possível concluir o agendamento:</strong>
+        <ul class="mb-0 mt-1">
+          {% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}
+          {% for e in form.profissional.errors %}<li>{{ e }}</li>{% endfor %}
+          {% for e in form.servico.errors %}<li>{{ e }}</li>{% endfor %}
+          {% for e in form.horario.errors %}<li>{{ e }}</li>{% endfor %}
+          {% for e in form.data_hora.errors %}<li>{{ e }}</li>{% endfor %}
+        </ul>
       </div>
+      {% endif %}
+
+      <section class="step" id="step1" aria-labelledby="t1">
+        <h2 class="step-title" id="t1"><span class="step-n">1</span> Com quem você quer agendar?</h2>
+        <div class="row g-3">
+          {% for p in profissionais %}
+          <div class="col-md-6">
+            <button type="button" class="pick-card" data-id="{{ p.pk }}" data-nome="{{ p }}" aria-pressed="false">
+              {% include "includes/avatar.html" with p=p %}
+              <span>
+                <span class="fw-semibold d-block">{{ p }}</span>
+                <span class="meta d-block">{{ p.especialidade }}</span>
+                <span class="meta d-block">
+                  {% if p.n_aval %}{% estrelas p.media %} {{ p.media|floatformat:1 }} ({{ p.n_aval }}){% else %}Ainda sem avaliações{% endif %}
+                </span>
+              </span>
+            </button>
+          </div>
+          {% empty %}
+          <p class="text-secondary">Nenhum profissional cadastrado ainda.</p>
+          {% endfor %}
+        </div>
+        <p class="small mt-2 mb-0"><a href="{% url 'home' %}#profissionais" target="_blank" rel="noopener">Ver o perfil e as avaliações de cada profissional</a></p>
+      </section>
+
+      <section class="step is-locked" id="step2" aria-labelledby="t2">
+        <h2 class="step-title" id="t2"><span class="step-n">2</span> Qual serviço?</h2>
+        <div id="listaServicos" class="d-grid gap-2"><p class="text-secondary mb-0">Escolha um profissional para ver os serviços.</p></div>
+      </section>
+
+      <section class="step is-locked" id="step3" aria-labelledby="t3">
+        <h2 class="step-title" id="t3"><span class="step-n">3</span> Dia e horário</h2>
+        <div id="listaDias" class="day-strip" role="group" aria-label="Dias com horários livres"></div>
+        <div id="listaHorarios" class="slot-grid" role="group" aria-label="Horários livres"></div>
+        <p id="msgHorarios" class="text-secondary mb-0">Escolha um serviço para ver os horários livres.</p>
+      </section>
+
+      <section class="step is-locked" id="step4" aria-labelledby="t4">
+        <h2 class="step-title" id="t4"><span class="step-n">4</span> Quer deixar algum recado?</h2>
+        {{ form.observacoes }}
+      </section>
     </form>
-  </div></div>
+  </div>
+
+  <aside class="col-lg-4">
+    <div class="card summary"><div class="card-body p-4">
+      <h2 class="h5 mb-3">Seu agendamento</h2>
+      <dl class="mb-2">
+        <dt>Profissional</dt><dd id="resProf" class="vazio">Ainda não escolhido</dd>
+        <dt>Serviço</dt><dd id="resServ" class="vazio">Ainda não escolhido</dd>
+        <dt>Quando</dt><dd id="resQuando" class="vazio">Ainda não escolhido</dd>
+        <dt>Valor</dt><dd id="resValor" class="vazio">—</dd>
+      </dl>
+      <button class="btn btn-primary w-100" type="submit" form="formAgendar" id="btnConfirmar" disabled>Solicitar horário</button>
+      <a class="btn btn-link w-100 mt-1" href="{% url 'cliente_agendamentos' %}">Voltar</a>
+      <p class="small text-secondary mt-2 mb-0">Atendemos de segunda a sábado, das 08h às 19h. O profissional confirma o pedido depois.</p>
+    </div></div>
+  </aside>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script>
-  (function () {
-    var prof = document.getElementById("id_profissional");
-    var serv = document.getElementById("id_servico");
-    var base = "{% url 'api_servicos' 0 %}";
-    var escolhido = serv.value;
-
-    function carregar() {
-      var id = prof.value;
-      serv.innerHTML = '<option value="">---------</option>';
-      if (!id) return;
-      fetch(base.replace("/0/", "/" + id + "/"))
-        .then(function (r) { return r.json(); })
-        .then(function (lista) {
-          lista.forEach(function (s) {
-            var o = document.createElement("option");
-            o.value = s.id;
-            o.textContent = s.nome + " — R$ " + s.preco + " (" + s.duracao + " min)";
-            if (String(s.id) === String(escolhido)) o.selected = true;
-            serv.appendChild(o);
-          });
-        });
-    }
-    prof.addEventListener("change", function () { escolhido = ""; carregar(); });
-    if (prof.value) carregar();
-  })();
-</script>
+<script src="{% static 'js/agendar.js' %}"></script>
 {% endblock %}

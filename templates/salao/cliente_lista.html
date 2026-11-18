@@ -1,10 +1,18 @@
 {% extends "base.html" %}
+{% load salao_extras %}
 {% block title %}Meus agendamentos{% endblock %}
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
   <h1 class="page-title h3 mb-0">Meus agendamentos</h1>
   <a class="btn btn-primary" href="{% url 'agendamento_novo' %}"><i class="bi bi-plus-lg"></i> Novo agendamento</a>
 </div>
+
+{% if para_avaliar %}
+<div class="alert alert-info d-flex flex-wrap align-items-center gap-2" role="status">
+  <i class="bi bi-star"></i>
+  <span>Você tem {{ para_avaliar }} atendimento{{ para_avaliar|pluralize }} concluído{{ para_avaliar|pluralize }} sem avaliação. Sua nota ajuda outros clientes a escolher.</span>
+</div>
+{% endif %}
 
 <form method="get" class="row g-2 mb-3">
   <div class="col-sm-6 col-md-4">
@@ -25,10 +33,14 @@
       <tr>
         <td>{{ a.data_hora|date:"d/m/Y" }}<br><span class="text-secondary small">{{ a.data_hora|time:"H:i" }}</span></td>
         <td>{{ a.servico.nome }}</td>
-        <td>{{ a.profissional }}</td>
+        <td><a href="{% url 'profissional_detalhe' a.profissional.pk %}">{{ a.profissional }}</a></td>
         <td>R$ {{ a.preco_cobrado }}</td>
         <td><span class="badge {{ a.badge_class }}">{{ a.get_status_display }}</span></td>
         <td class="text-end">
+          {% with av=a.avaliacao_feita %}
+            {% if av %}<span title="Sua avaliação">{% estrelas av.nota %}</span>
+            {% elif a.status == 'CONC' %}<a class="btn btn-sm btn-outline-primary" href="{% url 'agendamento_avaliar' a.pk %}"><i class="bi bi-star"></i> Avaliar</a>{% endif %}
+          {% endwith %}
           {% if a.pode_cancelar %}
           <form method="post" action="{% url 'agendamento_cancelar' a.pk %}" onsubmit="return confirm('Cancelar este agendamento?')">
             {% csrf_token %}<button class="btn btn-sm btn-outline-danger">Cancelar</button>

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% load salao_extras %}
+{% block title %}Avaliar atendimento{% endblock %}
+{% block content %}
+<div class="mx-auto" style="max-width:560px">
+  <h1 class="page-title h3 mb-3">Como foi seu atendimento?</h1>
+  <div class="card mb-3"><div class="card-body d-flex gap-3 align-items-center">
+    {% include "includes/avatar.html" with p=agendamento.profissional tamanho="pro-avatar-md" %}
+    <div>
+      <div class="fw-semibold">{{ agendamento.servico.nome }} com {{ agendamento.profissional }}</div>
+      <div class="text-secondary small">{{ agendamento.data_hora|date:"d/m/Y" }} às {{ agendamento.data_hora|time:"H:i" }}</div>
+    </div>
+  </div></div>
+
+  <div class="card"><div class="card-body p-4">
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <div class="mb-3">
+        <div class="form-label" id="rotuloNota">Sua nota</div>
+        <div class="star-rating" role="radiogroup" aria-labelledby="rotuloNota">
+          {% for valor, rotulo in notas_invertidas %}
+            <input type="radio" name="nota" id="nota{{ valor }}" value="{{ valor }}" {% if form.nota.value|stringformat:"s" == valor|stringformat:"s" %}checked{% endif %}>
+            <label for="nota{{ valor }}" title="{{ rotulo }}"><i class="bi bi-star-fill"></i><span class="visually-hidden">{{ valor }} estrela{{ valor|pluralize }}: {{ rotulo }}</span></label>
+          {% endfor %}
+        </div>
+        {% for e in form.nota.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+      </div>
+      <div class="mb-3">
+        <label class="form-label" for="{{ form.comentario.id_for_label }}">Comentário</label>
+        {{ form.comentario }}
+        {% for e in form.comentario.errors %}<div class="invalid-feedback d-block">{{ e }}</div>{% endfor %}
+      </div>
+      <div class="d-flex gap-2">
+        <button class="btn btn-primary" type="submit">Enviar avaliação</button>
+        <a class="btn btn-outline-secondary" href="{% url 'cliente_agendamentos' %}">Agora não</a>
+      </div>
+    </form>
+  </div></div>
+</div>
+{% endblock %}

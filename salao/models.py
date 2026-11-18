@@ -1,9 +1,10 @@
 from datetime import time, timedelta
 
 from django.conf import settings
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.db.models import Q
+from django.db.models import Avg, Count, Q
 from django.utils import timezone
 
 ABERTURA = time(8, 0)
@@ -44,6 +45,10 @@ class Profissional(models.Model):
     )
     especialidade = models.CharField(max_length=100)
     servicos = models.ManyToManyField(Servico, related_name="profissionais", verbose_name="serviços")
+    descricao = models.TextField(
+        "sobre", blank=True, help_text="Texto de apresentação exibido no perfil público."
+    )
+    anos_experiencia = models.PositiveSmallIntegerField("anos de experiência", default=0)
     foto = models.ImageField(upload_to="profissionais/", blank=True)
     ativo = models.BooleanField(default=True)
 
@@ -59,8 +64,88 @@ class Profissional(models.Model):
                 {"usuario": "Escolha um usuário com perfil 'Profissional'."}
             )
 
+    def resumo_avaliacoes(self):
+        """Média (ou None) e quantidade de avaliações recebidas."""
+        r = Avaliacao.objects.filter(agendamento__profissional=self).aggregate(
+            media=Avg("nota"), total=Count("id")
+        )
+        return r["media"], r["total"]
+
+    @property
+    def nota_media(self):
+        media, _ = self.resumo_avaliacoes()
+        return round(media, 1) if media is not None else None
+
     def __str__(self):
         return str(self.usuario)
+
+
+class HorarioQuerySet(models.QuerySet):
+    def futuros(self):
+        return self.filter(inicio__gt=timezone.now())
+
+    def livres(self):
+        """Horários sem nenhum agendamento ativo (cancelados liberam a vaga)."""
+        return self.annotate(
+            reservas=Count("agendamentos", filter=~Q(agendamentos__status="CANC"))
+        ).filter(reservas=0)
+
+
+class HorarioDisponivel(models.Model):
+    """Janela de atendimento cadastrada pelo profissional; o cliente escolhe entre elas."""
+
+    profissional = models.ForeignKey(
+        Profissional, on_delete=models.CASCADE, related_name="horarios"
+    )
+    inicio = models.DateTimeField("início")
+    fim = models.DateTimeField("fim")
+
+    objects = HorarioQuerySet.as_manager()
+
+    class Meta:
+        verbose_name = "horário disponível"
+        verbose_name_plural = "horários disponíveis"
+        ordering = ["inicio"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["profissional", "inicio"], name="horario_unico_por_profissional"
+            ),
+        ]
+
+    @property
+    def duracao_min(self):
+        return int((self.fim - self.inicio).total_seconds() // 60)
+
+    @property
+    def reservado(self):
+        return self.agendamentos.exclude(status="CANC").exists()
+
+    def clean(self):
+        if not (self.inicio and self.fim):
+            return
+        if self.fim <= self.inicio:
+            raise ValidationError({"fim": "O fim precisa ser depois do início."})
+        ini, fim = timezone.localtime(self.inicio), timezone.localtime(self.fim)
+        if ini.weekday() == DIA_FECHADO:
+            raise ValidationError({"inicio": "O salão não abre aos domingos."})
+        if ini.time() < ABERTURA or fim.time() > FECHAMENTO or fim.date() != ini.date():
+            raise ValidationError({"inicio": "O horário precisa ficar entre 08:00 e 19:00."})
+        if self.profissional_id:
+            sobrepoe = (
+                HorarioDisponivel.objects.filter(
+                    profissional_id=self.profissional_id, inicio__lt=self.fim, fim__gt=self.inicio
+                )
+                .exclude(pk=self.pk)
+                .exists()
+            )
+            if sobrepoe:
+                raise ValidationError(
+                    {"inicio": "Já existe outro horário deste profissional nesse intervalo."}
+                )
+
+    def __str__(self):
+        ini, fim = timezone.localtime(self.inicio), timezone.localtime(self.fim)
+        return f"{self.profissional} · {ini:%d/%m %H:%M}–{fim:%H:%M}"
 
 
 class Agendamento(models.Model):
@@ -77,7 +162,17 @@ class Agendamento(models.Model):
         Profissional, on_delete=models.PROTECT, related_name="agendamentos"
     )
     servico = models.ForeignKey(Servico, on_delete=models.PROTECT, verbose_name="serviço")
-    data_hora = models.DateTimeField("data e hora")
+    horario = models.ForeignKey(
+        HorarioDisponivel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="agendamentos",
+        verbose_name="horário",
+    )
+    data_hora = models.DateTimeField(
+        "data e hora", blank=True, help_text="Preenchida automaticamente a partir do horário escolhido."
+    )
     status = models.CharField(max_length=4, choices=Status.choices, default=Status.PENDENTE)
     observacoes = models.TextField("observações", blank=True)
     preco_cobrado = models.DecimalField(
@@ -93,6 +188,11 @@ class Agendamento(models.Model):
                 fields=["profissional", "data_hora"],
                 condition=~Q(status="CANC"),
                 name="sem_conflito_de_horario",
+            ),
+            models.UniqueConstraint(
+                fields=["horario"],
+                condition=~Q(status="CANC"),
+                name="horario_com_um_agendamento_ativo",
             ),
         ]
 
@@ -117,11 +217,48 @@ class Agendamento(models.Model):
             and self.data_hora > timezone.now()
         )
 
-    def clean(self):
-        if not (self.data_hora and self.profissional_id and self.servico_id):
-            return
+    @property
+    def pode_avaliar(self):
+        return self.status == self.Status.CONCLUIDO and self.avaliacao_feita is None
 
+    @property
+    def avaliacao_feita(self):
+        try:
+            return self.avaliacao
+        except ObjectDoesNotExist:
+            return None
+
+    def clean(self):
         erros = {}
+
+        if self.horario_id:
+            if not (self.profissional_id and self.servico_id):
+                return
+            h = self.horario
+            if h.profissional_id != self.profissional_id:
+                erros["horario"] = "Este horário pertence a outro profissional."
+            else:
+                self.data_hora = h.inicio
+                if self.servico.duracao_min > h.duracao_min:
+                    erros["servico"] = (
+                        f"Este serviço leva {self.servico.duracao_min} min, mas o horário "
+                        f"escolhido tem só {h.duracao_min} min."
+                    )
+                ocupado = (
+                    Agendamento.objects.filter(horario=h)
+                    .exclude(status=self.Status.CANCELADO)
+                    .exclude(pk=self.pk)
+                    .exists()
+                )
+                if ocupado and self.status != self.Status.CANCELADO:
+                    erros["horario"] = "Esse horário acabou de ser reservado. Escolha outro."
+        elif not self.data_hora:
+            raise ValidationError({"horario": "Escolha um horário disponível."})
+
+        if not (self.data_hora and self.profissional_id and self.servico_id):
+            if erros:
+                raise ValidationError(erros)
+            return
 
         if self._state.adding and self.data_hora <= timezone.now():
             erros["data_hora"] = "Escolha uma data e hora no futuro."
@@ -162,10 +299,46 @@ class Agendamento(models.Model):
             raise ValidationError(erros)
 
     def save(self, *args, **kwargs):
-
+        if self.horario_id:
+            self.data_hora = self.horario.inicio
         if self.preco_cobrado is None and self.servico_id:
             self.preco_cobrado = self.servico.preco
         super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.cliente} · {self.servico} · {timezone.localtime(self.data_hora):%d/%m %H:%M}"
+
+
+class Avaliacao(models.Model):
+    """Nota e comentário do cliente sobre um atendimento concluído."""
+
+    NOTAS = [(1, "Péssimo"), (2, "Ruim"), (3, "Regular"), (4, "Bom"), (5, "Excelente")]
+
+    agendamento = models.OneToOneField(
+        Agendamento, on_delete=models.CASCADE, related_name="avaliacao"
+    )
+    nota = models.PositiveSmallIntegerField(
+        choices=NOTAS, validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    comentario = models.TextField("comentário", blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "avaliação"
+        verbose_name_plural = "avaliações"
+        ordering = ["-criado_em"]
+
+    @property
+    def profissional(self):
+        return self.agendamento.profissional
+
+    @property
+    def cliente(self):
+        return self.agendamento.cliente
+
+    def clean(self):
+        if self.agendamento_id and self.agendamento.status != Agendamento.Status.CONCLUIDO:
+            raise ValidationError("Só é possível avaliar atendimentos concluídos.")
+
+    def __str__(self):
+        return f"{self.nota}/5 · {self.agendamento}"

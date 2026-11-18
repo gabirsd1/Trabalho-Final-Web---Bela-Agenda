@@ -36,14 +36,18 @@
             {% if user.eh_cliente %}
               <li class="nav-item"><a class="nav-link {% if url == 'cliente_agendamentos' %}active{% endif %}" href="{% url 'cliente_agendamentos' %}">Meus agendamentos</a></li>
               <li class="nav-item"><a class="nav-link {% if url == 'agendamento_novo' %}active{% endif %}" href="{% url 'agendamento_novo' %}">Novo agendamento</a></li>
+              <li class="nav-item"><a class="nav-link {% if url == 'profissional_detalhe' %}active{% endif %}" href="{% url 'home' %}#profissionais">Profissionais</a></li>
             {% elif user.eh_profissional %}
               <li class="nav-item"><a class="nav-link {% if url == 'prof_agenda' %}active{% endif %}" href="{% url 'prof_agenda' %}">Minha agenda</a></li>
+              <li class="nav-item"><a class="nav-link {% if url == 'prof_horarios' %}active{% endif %}" href="{% url 'prof_horarios' %}">Meus horários</a></li>
+              <li class="nav-item"><a class="nav-link {% if url == 'prof_perfil' %}active{% endif %}" href="{% url 'prof_perfil' %}">Meu perfil</a></li>
             {% elif user.eh_admin %}
               <li class="nav-item"><a class="nav-link {% if url == 'gestao_painel' %}active{% endif %}" href="{% url 'gestao_painel' %}">Painel de gestão</a></li>
               <li class="nav-item"><a class="nav-link" href="{% url 'admin:index' %}">Administração</a></li>
             {% endif %}
           {% else %}
             <li class="nav-item"><a class="nav-link {% if url == 'home' %}active{% endif %}" href="{% url 'home' %}">Serviços</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url 'home' %}#profissionais">Profissionais</a></li>
           {% endif %}
         </ul>
         <div class="d-flex align-items-center gap-2 flex-wrap">

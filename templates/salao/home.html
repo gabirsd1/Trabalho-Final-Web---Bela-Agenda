@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load salao_extras %}
 {% block title %}Serviços{% endblock %}
 {% block content %}
 <section class="hero">
@@ -36,20 +37,25 @@
 </section>
 
 {% if profissionais %}
-<section class="pb-4">
-  <h2 class="h4 mb-3">Quem atende</h2>
+<section class="pb-4" id="profissionais">
+  <h2 class="h4 mb-1">Quem atende</h2>
+  <p class="text-secondary">Conheça a equipe, leia as avaliações de quem já foi atendido e escolha com quem agendar.</p>
   <div class="row g-3">
     {% for p in profissionais %}
       <div class="col-sm-6 col-lg-4">
-        <div class="card h-100"><div class="card-body d-flex gap-3 align-items-center">
-          <div class="pro-avatar">
-            {% if p.foto %}<img src="{{ p.foto.url }}" alt="{{ p }}">{% else %}{{ p.usuario.first_name|default:p.usuario.username|slice:":1" }}{% endif %}
-          </div>
-          <div>
-            <div class="fw-semibold">{{ p }}</div>
-            <div class="text-secondary small">{{ p.especialidade }}</div>
-          </div>
-        </div></div>
+        <a class="card-link" href="{% url 'profissional_detalhe' p.pk %}">
+          <div class="card h-100"><div class="card-body d-flex gap-3 align-items-center">
+            {% include "includes/avatar.html" with p=p %}
+            <div>
+              <div class="fw-semibold">{{ p }}</div>
+              <div class="text-secondary small">{{ p.especialidade }}</div>
+              <div class="small mt-1">
+                {% if p.n_aval %}{% estrelas p.media %} <strong>{{ p.media|floatformat:1 }}</strong> <span class="text-secondary">({{ p.n_aval }})</span>
+                {% else %}<span class="text-secondary">Ainda sem avaliações</span>{% endif %}
+              </div>
+            </div>
+          </div></div>
+        </a>
       </div>
     {% endfor %}
   </div>

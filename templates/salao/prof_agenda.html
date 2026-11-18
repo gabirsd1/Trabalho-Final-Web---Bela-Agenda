@@ -1,9 +1,27 @@
 {% extends "base.html" %}
+{% load salao_extras %}
 {% block title %}Minha agenda{% endblock %}
 {% block content %}
 {% if not profissional %}
   <div class="alert alert-warning">Seu usuário ainda não foi vinculado a um cadastro de profissional. Peça ao administrador para fazer o vínculo.</div>
 {% else %}
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3"><div class="card kpi h-100"><div class="card-body">
+    <div class="kpi-label"><i class="bi bi-calendar-day"></i> Hoje</div>
+    <div class="stat">{{ resumo.hoje }}</div><div class="kpi-sub">atendimento{{ resumo.hoje|pluralize }} no dia</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card kpi h-100" style="--kpi-cor:#E0A526"><div class="card-body">
+    <div class="kpi-label"><i class="bi bi-hourglass-split"></i> Aguardando confirmação</div>
+    <div class="stat">{{ resumo.pendentes }}</div><div class="kpi-sub">{{ resumo.semana }} nos próximos 7 dias</div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card kpi h-100" style="--kpi-cor:var(--ba-ok)"><div class="card-body">
+    <div class="kpi-label"><i class="bi bi-clock"></i> Horários livres</div>
+    <div class="stat">{{ resumo.livres }}</div><div class="kpi-sub"><a href="{% url 'prof_horarios' %}">Cadastrar mais horários</a></div></div></div></div>
+  <div class="col-6 col-lg-3"><div class="card kpi h-100" style="--kpi-cor:var(--ba-star)"><div class="card-body">
+    <div class="kpi-label"><i class="bi bi-star"></i> Minha avaliação</div>
+    {% if resumo.total_aval %}<div class="stat">{{ resumo.media|floatformat:1 }}</div>
+      <div class="kpi-sub">{% estrelas resumo.media %} · {{ resumo.total_aval }} avaliaç{{ resumo.total_aval|pluralize:"ão,ões" }}</div>
+    {% else %}<div class="stat">—</div><div class="kpi-sub">Ainda sem avaliações</div>{% endif %}</div></div></div>
+</div>
+
 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
   <div>
     <h1 class="page-title h3 mb-0">Agenda de {{ dia|date:"l, d/m/Y" }}</h1>
@@ -22,6 +40,7 @@
     <div class="slot-time">{{ a.data_hora|time:"H:i" }}<div class="small fw-normal text-secondary">até {{ a.fim|time:"H:i" }}</div></div>
     <div class="flex-grow-1">
       <div class="fw-semibold">{{ a.servico.nome }} <span class="badge {{ a.badge_class }} ms-1">{{ a.get_status_display }}</span></div>
+      {% with av=a.avaliacao_feita %}{% if av %}<div class="small mb-1">{% estrelas av.nota %} <span class="text-secondary">{{ a.cliente.first_name|default:a.cliente.username }} avaliou{% if av.comentario %}: “{{ av.comentario|truncatechars:90 }}”{% endif %}</span></div>{% endif %}{% endwith %}
       <div class="text-secondary small">{{ a.cliente }}{% if a.cliente.telefone %} · {{ a.cliente.telefone }}{% endif %} · R$ {{ a.preco_cobrado }}</div>
       {% if a.observacoes %}<div class="small mt-1"><i class="bi bi-chat-left-text"></i> {{ a.observacoes }}</div>{% endif %}
     </div>

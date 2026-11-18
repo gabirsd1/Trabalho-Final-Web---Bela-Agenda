@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% load salao_extras %}
+{% block title %}{{ prof }}{% endblock %}
+{% block content %}
+<a class="small text-decoration-none" href="{% url 'home' %}#profissionais"><i class="bi bi-arrow-left"></i> Todos os profissionais</a>
+
+<div class="card mt-2 mb-4"><div class="card-body p-4">
+  <div class="row g-4 align-items-center">
+    <div class="col-md-8 d-flex gap-4 align-items-center">
+      {% include "includes/avatar.html" with p=prof tamanho="pro-avatar-lg" %}
+      <div>
+        <h1 class="page-title h2 mb-1">{{ prof }}</h1>
+        <div class="text-secondary">{{ prof.especialidade }}{% if prof.anos_experiencia %} · {{ prof.anos_experiencia }} ano{{ prof.anos_experiencia|pluralize }} de experiência{% endif %}</div>
+        <div class="mt-2">
+          {% if total_aval %}{% estrelas media "stars-lg" %} <strong>{{ media|floatformat:1 }}</strong>
+            <span class="text-secondary">({{ total_aval }} avaliaç{{ total_aval|pluralize:"ão,ões" }})</span>
+          {% else %}<span class="text-secondary">Ainda sem avaliações</span>{% endif %}
+        </div>
+        {% if atendimentos %}<div class="small text-secondary mt-1">{{ atendimentos }} atendimento{{ atendimentos|pluralize }} concluído{{ atendimentos|pluralize }} no BelaAgenda</div>{% endif %}
+      </div>
+    </div>
+    <div class="col-md-4 text-md-end">
+      {% if user.is_authenticated and user.eh_cliente %}
+        <a class="btn btn-primary btn-lg" href="{% url 'agendamento_novo' %}?profissional={{ prof.pk }}"><i class="bi bi-calendar-plus"></i> Agendar com {{ prof.usuario.first_name|default:prof.usuario.username }}</a>
+      {% elif not user.is_authenticated %}
+        <a class="btn btn-primary btn-lg" href="{% url 'login' %}?next={% url 'agendamento_novo' %}%3Fprofissional%3D{{ prof.pk }}">Entrar para agendar</a>
+      {% endif %}
+    </div>
+  </div>
+</div></div>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <section class="mb-4">
+      <h2 class="h5">Sobre</h2>
+      {% if prof.descricao %}<p style="white-space:pre-line">{{ prof.descricao }}</p>
+      {% else %}<p class="text-secondary">Este profissional ainda não escreveu uma apresentação.</p>{% endif %}
+    </section>
+
+    <section class="mb-4">
+      <h2 class="h5">Serviços que realiza</h2>
+      <div class="card"><ul class="list-group list-group-flush">
+        {% for s in servicos %}
+          <li class="list-group-item d-flex justify-content-between align-items-center bg-transparent">
+            <span>{{ s.nome }} <span class="text-secondary small">· {{ s.categoria }} · {{ s.duracao_min }} min</span></span>
+            <strong>R$ {{ s.preco }}</strong>
+          </li>
+        {% empty %}<li class="list-group-item bg-transparent text-secondary">Nenhum serviço cadastrado.</li>{% endfor %}
+      </ul></div>
+    </section>
+
+    <section>
+      <h2 class="h5">O que os clientes dizem</h2>
+      {% for a in avaliacoes %}
+        <div class="card mb-2"><div class="card-body">
+          <div class="d-flex justify-content-between flex-wrap gap-1">
+            <div>{% estrelas a.nota %} <span class="fw-semibold ms-1">{{ a.agendamento.cliente.first_name|default:a.agendamento.cliente.username }}</span></div>
+            <div class="small text-secondary">{{ a.agendamento.servico.nome }} · {{ a.criado_em|date:"d/m/Y" }}</div>
+          </div>
+          {% if a.comentario %}<p class="quote mb-0 mt-2">{{ a.comentario }}</p>{% endif %}
+        </div></div>
+      {% empty %}
+        <p class="text-secondary">Ainda não há avaliações. As notas aparecem aqui depois dos primeiros atendimentos concluídos.</p>
+      {% endfor %}
+    </section>
+  </div>
+
+  <div class="col-lg-5">
+    {% if total_aval %}
+    <div class="card mb-4"><div class="card-body">
+      <h2 class="h5 mb-3">Notas recebidas</h2>
+      {% for d in distribuicao %}
+        <div class="d-flex align-items-center gap-2 mb-1 small">
+          <span style="width:1.6rem">{{ d.nota }} <i class="bi bi-star-fill stars"></i></span>
+          <div class="rating-bar flex-grow-1"><span style="width:{{ d.pct }}%"></span></div>
+          <span class="text-secondary text-end" style="width:2rem">{{ d.qtd }}</span>
+        </div>
+      {% endfor %}
+    </div></div>
+    {% endif %}
+
+    <div class="card"><div class="card-body">
+      <h2 class="h5">Próximos horários livres</h2>
+      {% if proximos %}
+        <div class="d-flex flex-wrap gap-2 mt-3">
+          {% for h in proximos %}<span class="slot-chip">{{ h.inicio|date:"D d/m" }} · {{ h.inicio|time:"H:i" }}</span>{% endfor %}
+        </div>
+        <p class="small text-secondary mt-3 mb-0">Esses são os próximos. Na tela de agendamento você vê todos e escolhe o melhor para você.</p>
+      {% else %}
+        <p class="text-secondary mb-0 mt-2">Nenhum horário livre no momento. Volte em breve ou escolha outro profissional.</p>
+      {% endif %}
+    </div></div>
+  </div>
+</div>
+{% endblock %}

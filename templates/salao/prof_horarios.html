@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Meus horários{% endblock %}
+{% block content %}
+{% if not profissional %}
+  <div class="alert alert-warning">Seu usuário ainda não foi vinculado a um cadastro de profissional. Peça ao administrador para fazer o vínculo.</div>
+{% else %}
+<div class="mb-4">
+  <h1 class="page-title h3 mb-1">Meus horários</h1>
+  <p class="text-secondary mb-0">Você define os horários; o cliente escolhe entre eles ao agendar. {{ total_livres }} horário{{ total_livres|pluralize }} livre{{ total_livres|pluralize }} nos próximos 45 dias.</p>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-4">
+    <div class="card"><div class="card-body p-4">
+      <h2 class="h5 mb-3">Cadastrar horários</h2>
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {% include "includes/form_fields.html" %}
+        <button class="btn btn-primary w-100" type="submit">Criar horários</button>
+      </form>
+      <p class="small text-secondary mt-3 mb-0">Exemplo: dia 20, das 09:00 às 12:00, 1 hora cada, cria três horários (09h, 10h e 11h).</p>
+    </div></div>
+  </div>
+
+  <div class="col-lg-8">
+    {% for d, rotulo, horarios in grupos %}
+      <div class="card mb-2"><div class="card-body py-3">
+        <div class="fw-semibold mb-2">{{ rotulo }}</div>
+        <div class="d-flex flex-wrap gap-2">
+          {% for h in horarios %}
+            <span class="slot-chip {% if h.reservas %}reservado{% endif %}">
+              {{ h.inicio|time:"H:i" }}–{{ h.fim|time:"H:i" }}
+              {% if h.reservas %}
+                <span class="badge text-bg-secondary">Reservado</span>
+              {% else %}
+                <form method="post" action="{% url 'prof_horario_excluir' h.pk %}" class="m-0" onsubmit="return confirm('Remover este horário?')">
+                  {% csrf_token %}<button class="btn-close" aria-label="Remover horário das {{ h.inicio|time:'H:i' }}"></button>
+                </form>
+              {% endif %}
+            </span>
+          {% endfor %}
+        </div>
+      </div></div>
+    {% empty %}
+      <div class="card"><div class="card-body text-center py-5">
+        <p class="mb-1 fw-semibold">Você ainda não cadastrou horários.</p>
+        <p class="text-secondary mb-0">Use o formulário ao lado. Sem horários livres, os clientes não conseguem agendar com você.</p>
+      </div></div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
