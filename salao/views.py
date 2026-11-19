@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 from django.contrib import messages
 from django.db.models import Avg, Count, Prefetch, Q, Sum
-from django.db.models.functions import TruncDate
+from django.db.models.functions import ExtractHour, ExtractWeekDay, TruncDate
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
