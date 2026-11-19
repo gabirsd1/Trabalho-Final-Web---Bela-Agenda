@@ -176,3 +176,12 @@ a.card-link:hover .card { border-color: var(--bs-primary); transform: translateY
 .chart-box { position: relative; height: 280px; }
 .chart-box.sm { height: 240px; }
 .pill-group .btn { --bs-btn-padding-y: .2rem; --bs-btn-font-size: .8rem; border-radius: 2rem; }
+
+
+/* relatórios do painel */
+.medalha { font-size: 1.05rem; }
+.medalha-1 { color: #D9A404; }
+.medalha-2 { color: #8E98A6; }
+.medalha-3 { color: #B8723A; }
+.share-bar { height: 4px; border-radius: 4px; background: var(--bs-tertiary-bg); margin-top: .3rem; max-width: 9rem; overflow: hidden; }
+.share-bar > span { display: block; height: 100%; background: var(--bs-primary); }
