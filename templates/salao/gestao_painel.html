@@ -49,6 +49,38 @@
   </div></div></div>
 </div>
 
+<h2 class="h5 mb-2">Destaques do período</h2>
+<div class="row g-3 mb-3">
+  <div class="col-sm-6 col-lg-3"><div class="card kpi h-100" style="--kpi-cor:var(--ba-star)"><div class="card-body">
+    <div class="kpi-label"><i class="bi bi-trophy-fill"></i> Mais atendimentos</div>
+    {% if destaques.mais_atend %}
+      <div class="stat fs-4">{{ destaques.mais_atend.nome }}</div>
+      <div class="kpi-sub">{{ destaques.mais_atend.concluidos }} atendimento{{ destaques.mais_atend.concluidos|pluralize }} concluído{{ destaques.mais_atend.concluidos|pluralize }}</div>
+    {% else %}<div class="stat fs-4">—</div><div class="kpi-sub">Nenhum atendimento concluído no período</div>{% endif %}
+  </div></div></div>
+  <div class="col-sm-6 col-lg-3"><div class="card kpi h-100" style="--kpi-cor:var(--ba-ok)"><div class="card-body">
+    <div class="kpi-label"><i class="bi bi-cash-stack"></i> Maior faturamento</div>
+    {% if destaques.mais_fat %}
+      <div class="stat fs-4">{{ destaques.mais_fat.nome }}</div>
+      <div class="kpi-sub">R$ {{ destaques.mais_fat.receita|floatformat:"2g" }} · {{ destaques.mais_fat.pct }}% do total</div>
+    {% else %}<div class="stat fs-4">—</div><div class="kpi-sub">Nenhum faturamento no período</div>{% endif %}
+  </div></div></div>
+  <div class="col-sm-6 col-lg-3"><div class="card kpi h-100" style="--kpi-cor:#7A62C9"><div class="card-body">
+    <div class="kpi-label"><i class="bi bi-scissors"></i> Serviço que mais rende</div>
+    {% if destaques.servico_rende %}
+      <div class="stat fs-4">{{ destaques.servico_rende.servico__nome }}</div>
+      <div class="kpi-sub">R$ {{ destaques.servico_rende.receita|floatformat:"2g" }} em {{ destaques.servico_rende.n }} atendimento{{ destaques.servico_rende.n|pluralize }}</div>
+    {% else %}<div class="stat fs-4">—</div><div class="kpi-sub">Nenhum serviço concluído no período</div>{% endif %}
+  </div></div></div>
+  <div class="col-sm-6 col-lg-3"><div class="card kpi h-100"><div class="card-body">
+    <div class="kpi-label"><i class="bi bi-graph-up-arrow"></i> Dia mais movimentado</div>
+    {% if destaques.dia_pico %}
+      <div class="stat fs-4">{{ destaques.dia_pico.nome }}</div>
+      <div class="kpi-sub">{{ destaques.dia_pico.n }} agendamento{{ destaques.dia_pico.n|pluralize }} · horário de pico: {{ destaques.hora_pico.rotulo }}</div>
+    {% else %}<div class="stat fs-4">—</div><div class="kpi-sub">Sem agendamentos no período</div>{% endif %}
+  </div></div></div>
+</div>
+
 <div class="row g-3 mb-3">
   <div class="col-lg-8"><div class="card h-100"><div class="card-body">
     <h2 class="h5">Receita por dia</h2>
@@ -62,26 +94,57 @@
 </div>
 
 <div class="row g-3 mb-3">
+  <div class="col-lg-7"><div class="card h-100"><div class="card-body">
+    <h2 class="h5">Ranking de profissionais</h2>
+    <p class="small text-secondary mb-2">Ordenado por atendimentos concluídos. "A receber" são os agendamentos pendentes ou confirmados.</p>
+    <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+      <thead><tr><th>#</th><th>Profissional</th><th class="text-end">Atend.</th><th class="text-end">Faturado</th><th class="text-end text-nowrap d-none d-xl-table-cell">A receber</th><th class="text-end d-none d-xl-table-cell">Ticket</th><th>Avaliação</th></tr></thead>
+      <tbody>
+      {% for p in ranking %}
+        <tr>
+          <td class="text-nowrap">{% if p.concluidos and forloop.counter <= 3 %}<i class="bi bi-trophy-fill medalha medalha-{{ forloop.counter }}" title="{{ forloop.counter }}º lugar"></i>{% else %}<span class="text-secondary">{{ forloop.counter }}</span>{% endif %}</td>
+          <td><a href="{% url 'profissional_detalhe' p.id %}">{{ p.nome }}</a>
+            <div class="share-bar" title="{{ p.pct }}% do faturamento"><span style="width: {{ p.pct }}%"></span></div></td>
+          <td class="text-end">{{ p.concluidos }}{% if p.cancelados %}<div class="text-secondary small">{{ p.cancelados }} cancel.</div>{% endif %}</td>
+          <td class="text-end fw-semibold text-nowrap">R$ {{ p.receita|floatformat:"2g" }}<div class="text-secondary small fw-normal">{{ p.pct }}%</div></td>
+          <td class="text-end text-nowrap d-none d-xl-table-cell">R$ {{ p.a_receber|floatformat:"2g" }}</td>
+          <td class="text-end text-nowrap d-none d-xl-table-cell">{% if p.concluidos %}R$ {{ p.ticket|floatformat:"2g" }}{% else %}—{% endif %}</td>
+          <td class="text-nowrap">{% if p.n_aval %}<span class="d-none d-md-inline">{% estrelas p.media %} </span><i class="bi bi-star-fill stars d-md-none"></i> <strong>{{ p.media|floatformat:1 }}</strong> <span class="text-secondary small">({{ p.n_aval }})</span>{% else %}<span class="text-secondary small">sem avaliações</span>{% endif %}</td>
+        </tr>
+      {% empty %}<tr><td colspan="7" class="text-secondary">Sem dados no período.</td></tr>{% endfor %}
+      </tbody>
+    </table></div>
+  </div></div></div>
   <div class="col-lg-5"><div class="card h-100"><div class="card-body">
+    <h2 class="h5">Receita por profissional</h2>
+    <p class="small text-secondary mb-2">Quanto cada um já faturou e quanto ainda tem a receber.</p>
+    {% if grafico.profissionais.rotulos %}<div class="chart-box"><canvas id="gProfissionais" role="img" aria-label="Gráfico de barras da receita por profissional"></canvas></div>
+    {% else %}<p class="text-secondary mb-0">Sem receita no período.</p>{% endif %}
+  </div></div></div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-lg-4"><div class="card h-100"><div class="card-body">
     <h2 class="h5">Serviços mais pedidos</h2>
     {% if top_servicos %}<div class="chart-box sm"><canvas id="gServicos" role="img" aria-label="Gráfico de barras dos serviços mais pedidos"></canvas></div>
     {% else %}<p class="text-secondary mb-0">Sem agendamentos no período.</p>{% endif %}
   </div></div></div>
-  <div class="col-lg-7"><div class="card h-100"><div class="card-body">
-    <h2 class="h5">Profissionais</h2>
-    <div class="table-responsive"><table class="table table-sm align-middle mb-0">
-      <thead><tr><th>Profissional</th><th class="text-end">Atend.</th><th class="text-end">Receita</th><th>Avaliação</th></tr></thead>
-      <tbody>
-      {% for p in ranking %}
-        <tr>
-          <td><a href="{% url 'profissional_detalhe' p.id %}">{{ p.nome }}</a></td>
-          <td class="text-end">{{ p.n }}</td>
-          <td class="text-end">R$ {{ p.receita|floatformat:"2g" }}</td>
-          <td>{% if p.n_aval %}{% estrelas p.media %} <strong>{{ p.media|floatformat:1 }}</strong> <span class="text-secondary small">({{ p.n_aval }})</span>{% else %}<span class="text-secondary small">sem avaliações</span>{% endif %}</td>
-        </tr>
-      {% empty %}<tr><td colspan="4" class="text-secondary">Sem dados no período.</td></tr>{% endfor %}
-      </tbody>
-    </table></div>
+  <div class="col-lg-4"><div class="card h-100"><div class="card-body">
+    <h2 class="h5">Movimento por dia da semana</h2>
+    {% if destaques.dia_pico %}<div class="chart-box sm"><canvas id="gSemana" role="img" aria-label="Gráfico de barras dos agendamentos por dia da semana"></canvas></div>
+    {% else %}<p class="text-secondary mb-0">Sem agendamentos no período.</p>{% endif %}
+  </div></div></div>
+  <div class="col-lg-4"><div class="card h-100"><div class="card-body">
+    <h2 class="h5">Clientes que mais gastaram</h2>
+    <p class="small text-secondary mb-2">Somente atendimentos concluídos.</p>
+    <ol class="list-unstyled mb-0">
+      {% for c in top_clientes %}
+        <li class="d-flex justify-content-between align-items-baseline gap-2 py-2{% if not forloop.last %} border-bottom{% endif %}">
+          <span><span class="text-secondary me-1">{{ forloop.counter }}.</span>{{ c.nome }}<span class="text-secondary small d-block ms-3">{{ c.n }} atendimento{{ c.n|pluralize }}</span></span>
+          <strong class="text-nowrap">R$ {{ c.gasto|floatformat:"2g" }}</strong>
+        </li>
+      {% empty %}<li class="text-secondary">Sem atendimentos concluídos no período.</li>{% endfor %}
+    </ol>
   </div></div></div>
 </div>
 
