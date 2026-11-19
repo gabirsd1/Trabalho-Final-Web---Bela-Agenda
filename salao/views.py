@@ -471,30 +471,90 @@ class GestaoPainelView(PerfilRequiredMixin, TemplateView):
             .order_by("-n", "servico__nome")[:6]
         )
 
-        # ranking de profissionais: atendimentos/receita no período + nota geral
+            # ── relatórios por profissional ──
+        # "Atendimento" = serviço concluído; o que ainda vai acontecer entra em "a receber".
         notas = {
             r["agendamento__profissional"]: r
             for r in Avaliacao.objects.values("agendamento__profissional").annotate(
                 media=Avg("nota"), n=Count("id")
             )
         }
-        ranking = []
-        for r in (
-            ativos.values("profissional", "profissional__usuario__first_name", "profissional__usuario__username")
-            .annotate(n=Count("id"), receita=Sum("preco_cobrado"))
-            .order_by("-n")
+
+        def linha_prof(pk, nome, r=None):
+            r = r or {}
+            concl = r.get("concluidos") or 0
+            receita = r.get("receita") or 0
+            nota = notas.get(pk, {})
+            return {
+                "id": pk,
+                "nome": nome,
+                "concluidos": concl,
+                "n": concl,  # nome antigo, mantido por compatibilidade
+                "receita": receita,
+                "a_receber": r.get("a_receber") or 0,
+                "cancelados": r.get("cancelados") or 0,
+                "total": r.get("total") or 0,
+                "ticket": (receita / concl) if concl else 0,
+                "pct": round(receita * 100 / faturamento) if faturamento else 0,
+                "media": nota.get("media"),
+                "n_aval": nota.get("n", 0),
+            }
+
+        linhas = {}
+        for r in qs.values(
+            "profissional", "profissional__usuario__first_name", "profissional__usuario__username"
+        ).annotate(
+            concluidos=Count("id", filter=Q(status=Status.CONCLUIDO)),
+            receita=Sum("preco_cobrado", filter=Q(status=Status.CONCLUIDO)),
+            a_receber=Sum("preco_cobrado", filter=Q(status__in=[Status.PENDENTE, Status.CONFIRMADO])),
+            cancelados=Count("id", filter=Q(status=Status.CANCELADO)),
+            total=Count("id"),
         ):
-            nota = notas.get(r["profissional"], {})
-            ranking.append(
-                {
-                    "id": r["profissional"],
-                    "nome": r["profissional__usuario__first_name"] or r["profissional__usuario__username"],
-                    "n": r["n"],
-                    "receita": r["receita"] or 0,
-                    "media": nota.get("media"),
-                    "n_aval": nota.get("n", 0),
-                }
-            )
+            nome = r["profissional__usuario__first_name"] or r["profissional__usuario__username"]
+            linhas[r["profissional"]] = linha_prof(r["profissional"], nome, r)
+        # quem está ativo mas não teve movimento no período também aparece (com zeros)
+        for prof in Profissional.objects.filter(ativo=True).select_related("usuario"):
+            linhas.setdefault(prof.pk, linha_prof(prof.pk, prof.usuario.first_name or prof.usuario.username))
+        ranking = sorted(linhas.values(), key=lambda x: (-x["concluidos"], -x["receita"], x["nome"].lower()))
+
+        mais_atend = max((x for x in ranking if x["concluidos"]), key=lambda x: (x["concluidos"], x["receita"]), default=None)
+        mais_fat = max((x for x in ranking if x["receita"]), key=lambda x: x["receita"], default=None)
+        servico_rende = (
+            concluidos.values("servico__nome")
+            .annotate(receita=Sum("preco_cobrado"), n=Count("id"))
+            .order_by("-receita", "servico__nome")
+            .first()
+        )
+
+        # movimento por dia da semana e por horário (agendamentos não cancelados)
+        por_semana = [0] * 7
+        for r in ativos.annotate(dow=ExtractWeekDay("data_hora")).values("dow").annotate(n=Count("id")):
+            por_semana[(r["dow"] + 5) % 7] += r["n"]  # Django: 1 = domingo → nosso 0 = segunda
+        por_hora = {
+            r["h"]: r["n"] for r in ativos.annotate(h=ExtractHour("data_hora")).values("h").annotate(n=Count("id"))
+        }
+        dia_pico = hora_pico = None
+        if any(por_semana):
+            i = por_semana.index(max(por_semana))
+            dia_pico = {"nome": DIAS_SEMANA_LONGO[i].capitalize() + ("-feira" if i < 5 else ""), "n": por_semana[i]}
+        if por_hora:
+            h = min(por_hora, key=lambda k: (-por_hora[k], k))
+            hora_pico = {"rotulo": f"{h:02d}h", "n": por_hora[h]}
+
+        top_clientes = [
+            {
+                "nome": f"{r['cliente__first_name']} {r['cliente__last_name']}".strip() or r["cliente__username"],
+                "n": r["n"],
+                "gasto": r["gasto"] or 0,
+            }
+            for r in concluidos.values("cliente", "cliente__first_name", "cliente__last_name", "cliente__username")
+            .annotate(n=Count("id"), gasto=Sum("preco_cobrado"))
+            .order_by("-gasto", "-n", "cliente__username")[:5]
+        ]
+        por_receita = sorted(
+            (x for x in ranking if x["receita"] or x["a_receber"]),
+            key=lambda x: (-(x["receita"] + x["a_receber"]), x["nome"].lower()),
+        )
 
         def atalho(rotulo, ini, fi):
             return {"rotulo": rotulo, "inicio": ini, "fim": fi, "ativo": (ini, fi) == (inicio, fim)}
@@ -520,7 +580,15 @@ class GestaoPainelView(PerfilRequiredMixin, TemplateView):
             horarios_livres=HorarioDisponivel.objects.futuros().livres().count(),
             status_resumo=[(label, por_status.get(valor, 0)) for valor, label in Status.choices],
             top_servicos=top_servicos,
-            ranking=ranking,
+                      ranking=ranking,
+            destaques={
+                "mais_atend": mais_atend,
+                "mais_fat": mais_fat,
+                "servico_rende": servico_rende,
+                "dia_pico": dia_pico,
+                "hora_pico": hora_pico,
+            },
+            top_clientes=top_clientes,
             ultimas_avaliacoes=Avaliacao.objects.select_related(
                 "agendamento__cliente", "agendamento__profissional__usuario", "agendamento__servico"
             )[:4],
@@ -535,10 +603,16 @@ class GestaoPainelView(PerfilRequiredMixin, TemplateView):
                     "rotulos": [label for _, label in Status.choices],
                     "valores": [por_status.get(valor, 0) for valor, _ in Status.choices],
                 },
-                "servicos": {
+                              "servicos": {
                     "rotulos": [s["servico__nome"] for s in top_servicos],
                     "valores": [s["n"] for s in top_servicos],
                 },
+                "profissionais": {
+                    "rotulos": [x["nome"] for x in por_receita],
+                    "concluido": [float(x["receita"]) for x in por_receita],
+                    "a_receber": [float(x["a_receber"]) for x in por_receita],
+                },
+                "semana": {"rotulos": DIAS_SEMANA[:6], "valores": por_semana[:6]},
             },
         )
         return ctx
